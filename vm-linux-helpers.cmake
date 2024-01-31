@@ -24,17 +24,19 @@ function(AddFileToOverlayDir filename file_location root_location overlay_name)
     if(ROOTFS_FILE_OVERLAY_UNPARSED_ARGUMENTS)
         message(FATAL_ERROR "Unknown arguments to AddFileToOverlay: ${ROOTFS_FILE_OVERLAY_UNPARSED_ARGUMENTS}")
     endif()
-    set(rootfs_output_dir "${CMAKE_CURRENT_BINARY_DIR}/${overlay_name}")
-    if(TARGET ${overlay_name})
-        get_target_property(rootfs_output_dir ${overlay_name} ROOTFS_OUTPUT_DIR)
-    else()
+    if(NOT TARGET ${overlay_name})
         add_custom_target(${overlay_name})
         set_property(
             TARGET ${overlay_name}
             APPEND
-            PROPERTY ROOTFS_OUTPUT_DIR "${rootfs_output_dir}"
+            PROPERTY ROOTFS_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/${overlay_name}"
         )
     endif()
+    get_target_property(rootfs_output_dir ${overlay_name} ROOTFS_OUTPUT_DIR)
+    if(NOT rootfs_output_dir)
+        message(FATAL_ERROR "target '${overlay_name}' has no ROOTFS_OUTPUT_DIR")
+    endif()
+
     # Copy the file into the rootfs output directory at 'root_location'
     add_custom_command(
         OUTPUT ${rootfs_output_dir}/${root_location}/${filename}
