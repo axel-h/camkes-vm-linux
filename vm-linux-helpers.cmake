@@ -21,8 +21,8 @@ endif()
 function(AddFileToOverlayDir filename file_location root_location overlay_name)
     # Get any existing dependencies when adding the file into the overlay
     cmake_parse_arguments(PARSE_ARGV 4 ROOTFS_FILE_OVERLAY "" "" "DEPENDS")
-    if(NOT "${ROOTFS_FILE_OVERLAY_UNPARSED_ARGUMENTS}" STREQUAL "")
-        message(FATAL_ERROR "Unknown arguments to AddFileToOverlay")
+    if(ROOTFS_FILE_OVERLAY_UNPARSED_ARGUMENTS)
+        message(FATAL_ERROR "Unknown arguments to AddFileToOverlay: ${ROOTFS_FILE_OVERLAY_UNPARSED_ARGUMENTS}")
     endif()
     set(rootfs_output_dir "${CMAKE_CURRENT_BINARY_DIR}/${overlay_name}")
     if(TARGET ${overlay_name})
@@ -66,18 +66,19 @@ function(AddLinkToOverlayDir filename file_location root_location overlay_name)
     # Get any existing dependencies when adding the file into the overlay
     cmake_parse_arguments(PARSE_ARGV 4 ROOTFS_FILE_OVERLAY "" "" "DEPENDS")
     if(ROOTFS_FILE_OVERLAY_UNPARSED_ARGUMENTS)
-        message(FATAL_ERROR "Unknown arguments to AddLinkToOverlay")
+        message(FATAL_ERROR "Unknown arguments to AddLinkToOverlay: ${ROOTFS_FILE_OVERLAY_UNPARSED_ARGUMENTS}")
     endif()
-    set(rootfs_output_dir "${CMAKE_CURRENT_BINARY_DIR}/${overlay_name}")
-    if(TARGET ${overlay_name})
-        get_target_property(rootfs_output_dir ${overlay_name} ROOTFS_OUTPUT_DIR)
-    else()
+    if(NOT TARGET ${overlay_name})
         add_custom_target(${overlay_name})
         set_property(
             TARGET ${overlay_name}
             APPEND
-            PROPERTY ROOTFS_OUTPUT_DIR "${rootfs_output_dir}"
+            PROPERTY ROOTFS_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/${overlay_name}"
         )
+    endif
+    get_target_property(rootfs_output_dir ${overlay_name} ROOTFS_OUTPUT_DIR)
+    if(NOT rootfs_output_dir)
+        message(FATAL_ERROR "target '${overlay_name}' has no ROOTFS_OUTPUT_DIR")
     endif()
 
     # Create the symbolic link
@@ -118,10 +119,10 @@ function(
     endif()
     # Get any existing dependencies when adding overlay directory
     cmake_parse_arguments(PARSE_ARGV 6 ROOTFS_OVERLAY "SPLITGZ;GZIP" "" "DEPENDS;CUSTOM_INIT")
-    if(NOT "${ROOTFS_OVERLAY_UNPARSED_ARGUMENTS}" STREQUAL "")
+    if(ROOTFS_OVERLAY_UNPARSED_ARGUMENTS)
         message(
             FATAL_ERROR
-                "Unknown arguments to AddOverlayDirectoryToRootfs - ${ROOTFS_OVERLAY_UNPARSED_ARGUMENTS}"
+                "Unknown arguments to AddOverlayDirectoryToRootfs: ${ROOTFS_OVERLAY_UNPARSED_ARGUMENTS}"
         )
     endif()
     # Additional flags to build the rootfs
@@ -205,8 +206,8 @@ function(
     # Get the external project files to add the the overlay
     cmake_parse_arguments(PARSE_ARGV 4 EXTERNAL_PROJ_OVERLAY "" "" "FILES")
     # Error checking
-    if(NOT "${EXTERNAL_PROJ_OVERLAY_UNPARSED_ARGUMENTS}" STREQUAL "")
-        message(FATAL_ERROR "Unknown arguments to AddExternalProjFilesToOverlay")
+    if(EXTERNAL_PROJ_OVERLAY_UNPARSED_ARGUMENTS)
+        message(FATAL_ERROR "Unknown arguments to AddExternalProjFilesToOverlay: ${EXTERNAL_PROJ_OVERLAY_UNPARSED_ARGUMENTS}")
     endif()
     # Necessary to provide a least one file
     if(NOT EXTERNAL_PROJ_OVERLAY_FILES)
