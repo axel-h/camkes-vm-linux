@@ -21,20 +21,22 @@ endif()
 function(AddFileToOverlayDir filename file_location root_location overlay_name)
     # Get any existing dependencies when adding the file into the overlay
     cmake_parse_arguments(PARSE_ARGV 4 ROOTFS_FILE_OVERLAY "" "" "DEPENDS")
-    if(NOT "${ROOTFS_FILE_OVERLAY_UNPARSED_ARGUMENTS}" STREQUAL "")
-        message(FATAL_ERROR "Unknown arguments to AddFileToOverlay")
+    if(ROOTFS_FILE_OVERLAY_UNPARSED_ARGUMENTS)
+        message(FATAL_ERROR "Unknown arguments to AddFileToOverlay: ${ROOTFS_FILE_OVERLAY_UNPARSED_ARGUMENTS}")
     endif()
-    set(rootfs_output_dir "${CMAKE_CURRENT_BINARY_DIR}/${overlay_name}")
-    if(TARGET ${overlay_name})
-        get_target_property(rootfs_output_dir ${overlay_name} ROOTFS_OUTPUT_DIR)
-    else()
+    if(NOT TARGET ${overlay_name})
         add_custom_target(${overlay_name})
         set_property(
             TARGET ${overlay_name}
             APPEND
-            PROPERTY ROOTFS_OUTPUT_DIR "${rootfs_output_dir}"
+            PROPERTY ROOTFS_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/${overlay_name}"
         )
     endif()
+    get_target_property(rootfs_output_dir ${overlay_name} ROOTFS_OUTPUT_DIR)
+    if(NOT rootfs_output_dir)
+        message(FATAL_ERROR "target '${overlay_name}' has no ROOTFS_OUTPUT_DIR")
+    endif()
+
     # Copy the file into the rootfs output directory at 'root_location'
     add_custom_command(
         OUTPUT ${rootfs_output_dir}/${root_location}/${filename}
@@ -66,18 +68,19 @@ function(AddLinkToOverlayDir filename file_location root_location overlay_name)
     # Get any existing dependencies when adding the file into the overlay
     cmake_parse_arguments(PARSE_ARGV 4 ROOTFS_FILE_OVERLAY "" "" "DEPENDS")
     if(ROOTFS_FILE_OVERLAY_UNPARSED_ARGUMENTS)
-        message(FATAL_ERROR "Unknown arguments to AddLinkToOverlay")
+        message(FATAL_ERROR "Unknown arguments to AddLinkToOverlay: ${ROOTFS_FILE_OVERLAY_UNPARSED_ARGUMENTS}")
     endif()
-    set(rootfs_output_dir "${CMAKE_CURRENT_BINARY_DIR}/${overlay_name}")
-    if(TARGET ${overlay_name})
-        get_target_property(rootfs_output_dir ${overlay_name} ROOTFS_OUTPUT_DIR)
-    else()
+    if(NOT TARGET ${overlay_name})
         add_custom_target(${overlay_name})
         set_property(
             TARGET ${overlay_name}
             APPEND
-            PROPERTY ROOTFS_OUTPUT_DIR "${rootfs_output_dir}"
+            PROPERTY ROOTFS_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/${overlay_name}"
         )
+    endif
+    get_target_property(rootfs_output_dir ${overlay_name} ROOTFS_OUTPUT_DIR)
+    if(NOT rootfs_output_dir)
+        message(FATAL_ERROR "target '${overlay_name}' has no ROOTFS_OUTPUT_DIR")
     endif()
 
     # Create the symbolic link
@@ -118,10 +121,10 @@ function(
     endif()
     # Get any existing dependencies when adding overlay directory
     cmake_parse_arguments(PARSE_ARGV 6 ROOTFS_OVERLAY "SPLITGZ;GZIP" "" "DEPENDS;CUSTOM_INIT")
-    if(NOT "${ROOTFS_OVERLAY_UNPARSED_ARGUMENTS}" STREQUAL "")
+    if(ROOTFS_OVERLAY_UNPARSED_ARGUMENTS)
         message(
             FATAL_ERROR
-                "Unknown arguments to AddOverlayDirectoryToRootfs - ${ROOTFS_OVERLAY_UNPARSED_ARGUMENTS}"
+                "Unknown arguments to AddOverlayDirectoryToRootfs: ${ROOTFS_OVERLAY_UNPARSED_ARGUMENTS}"
         )
     endif()
     # Additional flags to build the rootfs
@@ -140,27 +143,27 @@ function(
         set(gzip_ext ".gz")
     endif()
     # Command to install the rootfs artifacts
+    set(install_artifacts_rootfs "${VM_LINUX_PROJECT_DIR}/tools/rootfs_unpack/install_artifacts_rootfs.sh")
+    set(output_file_base "output_overlay_rootfs.cpio")
+    set(output_dir "out_${target_name}")
+    set(output_file "${output_dir}/${output_file_base}${gzip_ext}")
     add_custom_command(
-        OUTPUT out_${target_name}/output_overlay_rootfs.cpio${gzip_ext}
+        OUTPUT "${output_file}"
         COMMAND
-            bash -c
-            "${VM_LINUX_PROJECT_DIR}/tools/rootfs_unpack/install_artifacts_rootfs.sh --mode=${rootfs_overlay_mode} --image=${rootfs_image} \
-        --distro=${rootfs_distro} --root-install=${rootfs_overlay} --output-image-name=output_overlay_rootfs.cpio \
-        --output-dir=${CMAKE_CURRENT_BINARY_DIR}/out_${target_name} ${additional_install_flags}"
+            ${install_artifacts_rootfs}
+            --mode=${rootfs_overlay_mode}
+            --image=${rootfs_image}
+            --distro=${rootfs_distro}
+            --root-install=${rootfs_overlay}
+            --output-image-name=${output_file_base}
+            --output-dir=${output_dir}
+            ${additional_install_flags}
         VERBATIM
-        DEPENDS ${rootfs_overlay} ${ROOTFS_OVERLAY_DEPENDS}
+        DEPENDS ${install_artifacts_rootfs} ${rootfs_image} ${rootfs_overlay} ${ROOTFS_OVERLAY_DEPENDS}
     )
     # Create custom target for the command
-    add_custom_target(
-        ${target_name}
-        DEPENDS
-            "${CMAKE_CURRENT_BINARY_DIR}/out_${target_name}/output_overlay_rootfs.cpio${gzip_ext}"
-    )
-    set(
-        ${output_rootfs_location}
-        "${CMAKE_CURRENT_BINARY_DIR}/out_${target_name}/output_overlay_rootfs.cpio${gzip_ext}"
-        PARENT_SCOPE
-    )
+    add_custom_target(${target_name} DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/${output_file}")
+    set(${output_rootfs_location} "${CMAKE_CURRENT_BINARY_DIR}/${output_file}" PARENT_SCOPE)
 endfunction(AddOverlayToRootfs)
 
 # Wrapper function to add an overlay directory to a rootfs image
@@ -205,8 +208,8 @@ function(
     # Get the external project files to add the the overlay
     cmake_parse_arguments(PARSE_ARGV 4 EXTERNAL_PROJ_OVERLAY "" "" "FILES")
     # Error checking
-    if(NOT "${EXTERNAL_PROJ_OVERLAY_UNPARSED_ARGUMENTS}" STREQUAL "")
-        message(FATAL_ERROR "Unknown arguments to AddExternalProjFilesToOverlay")
+    if(EXTERNAL_PROJ_OVERLAY_UNPARSED_ARGUMENTS)
+        message(FATAL_ERROR "Unknown arguments to AddExternalProjFilesToOverlay: ${EXTERNAL_PROJ_OVERLAY_UNPARSED_ARGUMENTS}")
     endif()
     # Necessary to provide a least one file
     if(NOT EXTERNAL_PROJ_OVERLAY_FILES)
