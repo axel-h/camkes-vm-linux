@@ -143,27 +143,27 @@ function(
         set(gzip_ext ".gz")
     endif()
     # Command to install the rootfs artifacts
+    set(install_artifacts_rootfs "${VM_LINUX_PROJECT_DIR}/tools/rootfs_unpack/install_artifacts_rootfs.sh")
+    set(output_file_base "output_overlay_rootfs.cpio")
+    set(output_dir "out_${target_name}")
+    set(output_file "${output_dir}/${output_file_base}${gzip_ext}")
     add_custom_command(
-        OUTPUT out_${target_name}/output_overlay_rootfs.cpio${gzip_ext}
+        OUTPUT "${output_file}"
         COMMAND
-            bash -c
-            "${VM_LINUX_PROJECT_DIR}/tools/rootfs_unpack/install_artifacts_rootfs.sh --mode=${rootfs_overlay_mode} --image=${rootfs_image} \
-        --distro=${rootfs_distro} --root-install=${rootfs_overlay} --output-image-name=output_overlay_rootfs.cpio \
-        --output-dir=${CMAKE_CURRENT_BINARY_DIR}/out_${target_name} ${additional_install_flags}"
+            ${install_artifacts_rootfs}
+            --mode=${rootfs_overlay_mode}
+            --image=${rootfs_image}
+            --distro=${rootfs_distro}
+            --root-install=${rootfs_overlay}
+            --output-image-name=${output_file_base}
+            --output-dir=${output_dir}
+            ${additional_install_flags}
         VERBATIM
-        DEPENDS ${rootfs_overlay} ${ROOTFS_OVERLAY_DEPENDS}
+        DEPENDS ${install_artifacts_rootfs} ${rootfs_image} ${rootfs_overlay} ${ROOTFS_OVERLAY_DEPENDS}
     )
     # Create custom target for the command
-    add_custom_target(
-        ${target_name}
-        DEPENDS
-            "${CMAKE_CURRENT_BINARY_DIR}/out_${target_name}/output_overlay_rootfs.cpio${gzip_ext}"
-    )
-    set(
-        ${output_rootfs_location}
-        "${CMAKE_CURRENT_BINARY_DIR}/out_${target_name}/output_overlay_rootfs.cpio${gzip_ext}"
-        PARENT_SCOPE
-    )
+    add_custom_target(${target_name} DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/${output_file}")
+    set(${output_rootfs_location} "${CMAKE_CURRENT_BINARY_DIR}/${output_file}" PARENT_SCOPE)
 endfunction(AddOverlayToRootfs)
 
 # Wrapper function to add an overlay directory to a rootfs image
